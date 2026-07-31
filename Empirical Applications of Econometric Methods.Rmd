@@ -1,0 +1,609 @@
+---
+title: "Empirical Applications of Econometric Methods: Wage Determination and Transportation Policy Analysis"
+author: "Myrto Tripolitaki"
+output: pdf_document
+date: "2026-04-10"
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(broom)
+library(knitr)
+```
+## Introduction 
+
+This project applies econometric techniques to analyze two real-world economic questions. The first part examines the relationship between education and wages, while the second evaluates the impact of ride-sharing services on traffic fatalities using a Difference-in-Differences approach. Through regression analysis, the project explores how economic factors influence labour market outcomes and public safety.
+
+## Part 1: Wage Determination and Returns to Education
+
+Examined the relationship between educational attainment and wages using econometric regression techniques to estimate the impact of education on labour market outcomes.
+
+
+```{r}
+library(readr)
+# Load Q1 FIRST
+q1 <- read_csv("Q1.csv")
+
+head(q1)
+```
+
+
+## Baseline Regression
+
+```{r}
+# Load data (change file name if needed)
+q1 <- read_csv("Q1.csv")
+
+# Run regression
+model_a <- lm(wage ~ education + experience + female, data = q1)
+
+summary(model_a)
+```
+
+## Regression Table
+
+```{r}
+model_a_table <- tidy(model_a) %>%
+  select(term, estimate, std.error) %>%
+  rename(
+    Variable = term,
+    Coefficient = estimate,
+    `Standard Error` = std.error
+  )
+
+kable(model_a_table, digits = 3)
+```
+
+## Interpretation 
+
+The coefficient of education represents the change in wages when one more year of education is added, holding all else constant. A positive coefficient implies that education helps in earning more wages.
+
+The coefficient of female represents the differential wages between females and males, holding education and experience constant. A negative coefficient implies that females earn lower wages compared to males.
+
+## Model Evaluation
+
+This specification gives a good starting point, but it may not be perfect. The distribution of wages may be skewed, and wages in levels may not be an accurate way to measure percentage change. There may also be omitted variables such as region, occupation, and ability.
+
+
+## Estimated Log Wage Model 
+
+We now estimate the log wage model:
+
+$$
+\log(wage_i) = \beta_0 + \beta_1 education_i + \beta_2 experience_i + \beta_3 female_i + u_i
+$$
+```{r}
+model_b <- lm(log(wage) ~ education + experience + female, data = q1)
+
+summary(model_b)
+```
+## Regression Table
+
+```{r}
+model_b_table <- tidy(model_b) %>%
+  select(term, estimate, std.error) %>%
+  rename(
+    Variable = term,
+    Coefficient = estimate,
+    `Standard Error` = std.error
+  )
+
+kable(model_b_table, digits = 4)
+```
+ 
+## Interpretation
+
+In this log-linear model, the coefficient on education represents an approximate percentage change in wages associated with one more year of schooling, holding experience and gender constant.
+
+The coefficient on experience represents an approximate percentage change in wages associated with one more year of labor market experience, holding education and gender constant.
+
+The coefficient on female represents an approximate percentage difference in wages between females and males, holding education and experience constant. A negative coefficient indicates females earn less than males on average.
+
+
+## Why the log specification may be preferable
+
+The use of the log form may also be desirable for several reasons. First, the distribution of wages may be right-skewed, and the use of logs may reduce this skewness. Second, the results may be easier to interpret in percentage terms, which may be more applicable in labor economics. Third, the return to education in terms of wages may be considered to be proportional.
+
+Compared to part (a), the coefficient for education may now be considered to represent an approximate percentage return to one year of education instead of the dollar return to one year of education in terms of annual wages.
+
+
+### Interpretation
+- If the coefficient on **education** is, for example, `0.082`, then one additional year of education is associated with about an **8.2% increase in wage**, holding experience and gender constant.
+- If the coefficient on **experience** is `0.021`, then one additional year of experience is associated with about a **2.1% increase in wage**, holding other variables constant.
+- If the coefficient on **female** is `-0.156`, then females earn about **15.6% lower wages** than males on average, holding education and experience constant.
+
+The exact percentage effect for a dummy variable is given by:
+
+$$
+100 \times (e^{\beta} - 1)
+$$
+```{r}
+100 * (exp(coef(model_b)["female"]) - 1)
+```
+
+
+## Diminishing Returns 
+
+Economic theory suggests that returns to experience may diminish over time, so we estimate:
+
+$$
+\log(wage_i) = \beta_0 + \beta_1 education_i + \beta_2 experience_i + \beta_3 experience_i^2 + \beta_4 female_i + u_i
+$$
+
+```{r}
+model_c <- lm(log(wage) ~ education + experience + I(experience^2) + female, data = q1)
+
+summary(model_c)
+```
+## Regression Table 
+
+```{r} 
+model_c_table <- tidy(model_c) %>%
+  select(term, estimate, std.error) %>%
+  rename(
+    Variable = term,
+    Coefficient = estimate,
+    `Standard Error` = std.error
+  )
+
+kable(model_c_table, digits = 4)
+```
+## Interpretation
+
+It may be necessary to add $experience^2$ in the equation because the effect of experience on wages is not always constant. That is, when experience is low, an additional year of experience may raise wages by a relatively large amount; but when experience is high, the increase in wages may be smaller. This is called diminishing returns to experience.
+
+The coefficient on experience measures the initial effect of experience on log wages; the coefficient on experience² measures how this effect changes as experience increases.
+
+If the coefficient on experience is positive and the coefficient on experience² is negative, this means that wages rise with experience at first, but at a decreasing rate over time.
+
+## Turning Point Calculation 
+
+To find the level of experience at which wages are maximized, take the derivative of the regression function with respect to experience and set it equal to zero:
+
+$$
+\frac{\partial \log(wage)}{\partial experience} = \beta_2 + 2\beta_3 \cdot experience = 0
+$$
+
+Solving for experience gives:
+
+$$
+experience^* = \frac{-\beta_2}{2\beta_3}
+$$
+```{r}
+beta2 <- coef(model_c)["experience"]
+beta3 <- coef(model_c)["I(experience^2)"]
+
+turning_point <- -beta2 / (2 * beta3)
+turning_point
+```
+
+## Conclusion
+
+The estimated wage-maximizing level of experience is given by the turning point above. If this value is economically reasonable and the coefficient on experience^2 is negative, then the results support the idea that returns to experience diminish over time.
+
+## Interpretation
+
+The coefficient on **experience** is positive, suggesting that an additional year of experience increases wages, holding other factors constant.
+
+The coefficient on **experience²** is negative, indicating that the return to experience declines as experience increases. This provides evidence of diminishing returns to experience.
+
+Wages are maximized at approximately **31.7 years of experience**, based on the turning point calculation above.
+
+This result is economically reasonable and supports the idea that wages increase with experience at a decreasing rate over time.
+
+
+## Regional Wage Differences. 
+
+The Ministry suspects that there are regional wage differences, so we extend the previous model by including region indicator variables:
+
+$$
+\log(wage_i) = \beta_0 + \beta_1 education_i + \beta_2 experience_i + \beta_3 experience_i^2 + \beta_4 female_i + \beta_5 South_i + \beta_6 West_i + u_i
+$$
+
+```{r}
+# Make sure region is treated as a factor
+q1$region <- factor(q1$region)
+
+model_d <- lm(log(wage) ~ education + experience + I(experience^2) + female + region, data = q1)
+
+summary(model_d)
+```
+
+## Regression Table
+
+```{r}
+model_d_table <- tidy(model_d) %>%
+  select(term, estimate, std.error) %>%
+  rename(
+    Variable = term,
+    Coefficient = estimate,
+    `Standard Error` = std.error
+  )
+
+kable(model_d_table, digits = 4)
+```
+
+## Interpretation
+
+The reference category or the category that is omitted in the above table consists of the region that is not displayed in the table. By default, R chooses the first category alphabetically as the reference group, unless the levels are manually adjusted.
+
+The estimates for the other regions' indicators show the change in log wages between the regions and the reference region, while controlling for education, experience, experience squared, and gender.
+
+For instance, the estimates for regionSouth show the approximate percent change in wages between workers in the South and workers in the reference region.
+
+Also, the estimates for regionWest show the approximate percent change in wages between workers in the West and workers in the reference region.
+
+## Why one region must be omitted
+
+One of the regions needs to be left out for the purpose of avoiding the problem of perfect multicollinearity. If the dummy variables for all three regions and an intercept term had been included in the model, it would have meant that one variable was a linear combination of the other two.
+
+This phenomenon is called the dummy variable trap. The regression model would not have been able to estimate all the coefficients in such a case.
+
+```{r}
+levels(q1$region)
+```
+
+## Conclusion
+
+North is the reference category. 
+
+The coefficient on **regionSouth** measures the difference in log wages between workers in the South and workers in the North, holding education, experience, and gender constant.
+
+The coefficient on **regionWest** measures the difference in log wages between workers in the West and workers in the North, holding other factors constant.
+
+A positive coefficient indicates higher wages relative to North, while a negative coefficient indicates lower wages relative to North.
+
+## Gender and Education interaction Model 
+
+The Ministry wants to know whether women receive the same return to education as men, so we estimate a model with an interaction between education and gender:
+
+$$
+\log(wage_i) = \beta_0 + \beta_1 education_i + \beta_2 experience_i + \beta_3 experience_i^2 + \beta_4 female_i + \beta_5 (education_i \times female_i) + u_i
+$$
+
+```{r}
+model_e <- lm(log(wage) ~ education + experience + I(experience^2) + female + education:female, data = q1)
+
+summary(model_e)
+```
+
+## Regression Table
+
+```{r}
+model_e_table <- tidy(model_e) %>%
+  select(term, estimate, std.error) %>%
+  rename(
+    Variable = term,
+    Coefficient = estimate,
+    `Standard Error` = std.error
+  )
+
+kable(model_e_table, digits = 4)
+```
+
+## Interpretation
+
+The coefficient on the education variable measures the return to education for males, as the reference group corresponds to the case when female=0.
+
+The coefficient on the female variable measures the log wage difference between females and males when education=0, controlling for experience.
+
+The coefficient on the interaction term between education and female measures the difference in return to education between females and males.
+
+
+The return to education for females is:
+
+$$
+\beta_1 + \beta_5
+$$
+
+where $\beta_1$ is the coefficient on education and $\beta_5$ is the coefficient on the interaction term. 
+
+## Calculate the Return to Education for Females
+
+```{r}
+beta_education <- coef(model_e)["education"]
+beta_interaction <- coef(model_e)["education:female"]
+
+female_return <- beta_education + beta_interaction
+female_return
+```
+
+
+The coefficient on **education** is 0.0768, meaning that for males, one additional year of education is associated with approximately a **7.68% increase in wages**, holding other factors constant.
+
+The coefficient on **female** is -0.1673, indicating that females earn approximately **16.73% lower wages** than males when education is zero, holding other variables constant.
+
+The coefficient on the interaction term **education:female** is 0.0534, which shows how the return to education differs for females relative to males.
+
+The return to education for females is:
+
+$$
+\hat{\beta}_1 + \hat{\beta}_5 = 0.0768 + 0.0534 = 0.1302
+$$
+
+This implies that for females, one additional year of education is associated with approximately a **13.02% increase in wages**.
+
+## Hypothesis Test
+
+The null hypothesis states that the return to education is equivalent between males and females. Alternative Hypothesis
+
+The alternative hypothesis states that the return to education varies depending on gender. 
+
+In order to test our hypotheses, we need to look at the coefficient of the interaction term education: female.
+
+We test the null hypothesis that the return to education is the same for males and females:
+
+$$
+H_0: \beta_5 = 0 \quad \text{vs.} \quad H_1: \beta_5 \neq 0
+$$
+
+The p-value for the interaction term (**education:female**) is less than 0.01. Therefore, we reject the null hypothesis at the 5% significance level.
+
+## Conclusion
+
+If the p-value associated with the interaction term turns out to be less than 0.05, we reject the null hypothesis. This implies that the return on investment in education differs significantly by gender.
+
+If the p-value associated with the interaction term turns out to be greater than 0.05, we fail to reject the null hypothesis. This implies that there is insufficient evidence to suggest that the return on investment in education differs significantly by gender.
+
+There is strong evidence that the return to education differs by gender. Specifically, females experience a higher return to education than males.
+
+## Joint Hypothesis
+
+The Ministry wants to know whether the regional variables are jointly important in explaining wages. Using the model from part (d), we test whether the coefficients on the region indicators are both equal to zero.
+
+The null and alternative hypotheses are:
+
+$$
+H_0: \beta_{South} = 0 \text{ and } \beta_{West} = 0
+$$
+
+$$
+H_1: \text{At least one of the regional coefficients is not equal to zero}
+$$
+
+To conduct this joint hypothesis test, we use an F-test.
+
+```{r}
+library(car)
+
+linearHypothesis(model_d, c("regionSouth = 0", "regionWest = 0"))
+```
+## Interpretation
+
+The F-test evaluates whether the coefficients on **regionSouth** and **regionWest** are jointly equal to zero.
+
+The F-statistic is **39.81** and the p-value is **less than 0.001**.
+
+Since the p-value is less than 0.05, we reject the null hypothesis at the 5% significance level.
+
+## Conclusion
+
+We reject the null hypothesis that the coefficients on the regional variables are both equal to zero. Therefore, there is strong evidence that region is jointly relevant in explaining wages.
+
+## Part 2: Ride-Sharing and Traffic Fatalities
+## Evaluating the Impact of Ride-Sharing Adoption on Traffic Safety Outcomes
+
+Analyzed the relationship between ride-sharing availability and traffic fatalities using econometric methods to evaluate potential effects on transportation safety.
+
+We begin by exploring the data and computing the average traffic fatality rate for each combination of state and period.
+
+```{r}
+library(readr)
+Q3 <- read_csv("~/Desktop/Applied Econometrics Project/Data Sets/Q3.csv")
+head(Q3)
+```
+## Group Means Table
+
+```{r}
+group_means <- Q3 %>%
+  group_by(state, period) %>%
+  summarise(
+    mean_fatality_rate = mean(fatality_rate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+group_means
+```
+
+```{r}
+group_means_wide <- group_means %>%
+  pivot_wider(
+    names_from = period,
+    values_from = mean_fatality_rate
+  )
+
+kable(
+  group_means_wide,
+  digits = 3,
+  caption = "Table 1. Average Traffic Fatality Rate by State and Period"
+)
+```
+## Plot of Group Means
+
+```{r} 
+ggplot(group_means, aes(x = period, y = mean_fatality_rate, group = state, color = state)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  labs(
+    title = "Average Traffic Fatality Rate by State and Period",
+    x = "Period",
+    y = "Average Traffic Fatality Rate",
+    color = "State"
+  ) +
+  theme_minimal()
+```
+
+## Interpretation
+
+The table and figure above illustrate the average traffic fatality rate in Greendale and Fairfield before and after the legalization of ride-sharing in Greendale.
+
+The group means are significant because they enable us to analyze and compare the extent to which the fatality rates changed in the treatment state (Greendale) and the control state (Fairfield) before and after the treatment.
+
+If the fatality rate in Greendale decreases after the treatment and the fatality rate in Fairfield remains constant, then it would be reasonable to conclude that ride-sharing reduces traffic fatalities. However, if the fatality rate in Greendale increases compared to Fairfield, then it would be reasonable to conclude that ride-sharing increases traffic fatalities.
+
+Table 1 shows the average traffic fatality rate for each state in the Before and After periods.
+
+In **Greendale**, the average fatality rate decreased from **15.095** in the Before period to **14.614** in the After period. This is a decline of **0.481**.
+
+In **Fairfield**, the average fatality rate decreased from **12.884** in the Before period to **11.070** in the After period. This is a decline of **1.814**.
+
+The table suggests that traffic fatality rates fell in both states over time. However, the decline was much larger in Fairfield than in Greendale.
+
+This means that although fatalities decreased in Greendale after ride-sharing was legalized, they also decreased in the control state. Based on the group means alone, it appears that Greendale experienced a smaller improvement in fatality rates than Fairfield. This suggests that the effect of ride-sharing may not have reduced fatalities relative to the control group, but the Difference-in-Differences estimate in the next part will measure this more formally.
+
+## Difference-in-Differences Estimate Manually 
+
+We now compute the Difference-in-Differences (DiD) estimate to measure the effect of ride-sharing legalization on traffic fatality rates.
+
+First, we calculate the change in fatality rates over time for each state:
+
+## Before–after change in the average fatality rate for Greendale
+- **Greendale**:  
+$$
+14.614 - 15.095 = -0.481
+$$
+
+## Before–after change in the average fatality rate for Fairfield
+- **Fairfield**: 
+$$
+11.070 - 12.884 = -1.814
+$$
+
+## DiD estimate as the difference between Greendale and Fairfield
+The Difference-in-Differences estimate is:
+$$
+DiD = (-0.481) - (-1.814) = 1.333
+$$
+
+
+## Interpretation
+
+The DiD estimate is **1.333**, and this implies that the fatality rate in Greendale was higher by **1.333** compared to Fairfield after the implementation of ride-sharing.
+
+While there was a reduction in fatality rates in both states, the reduction in Greendale was lower compared to Fairfield, indicating a possible **negative impact** of ride-sharing on traffic safety, resulting in higher fatality rates in Greendale compared to Fairfield.
+
+## Conclusion
+
+The Difference-in-Differences estimate shows that ride-sharing is associated with an increase in traffic fatality rates in Greendale compared to Fairfield. However, this requires the assumption that both states would have followed similar trends in the absence of ride-sharing.
+
+## Difference-in-Differences Estimate using a Regression  
+
+To estimate the Difference-in-Differences model using OLS, we create two indicator variables:
+
+- `treat = 1` for Greendale and `0` for Fairfield
+- `post = 1` for the After period and `0` for the Before period
+
+We then create the interaction term:
+
+$$
+treat\_post_i = treat_i \times post_i
+$$
+
+The regression model is:
+
+$$
+fatality\_rate_i = \beta_0 + \beta_1 post_i + \beta_2 treat_i + \beta_3 treat\_post_i + u_i
+$$
+
+```{r} 
+Q3 <- Q3 %>%
+  mutate(
+    treat = ifelse(state == "Greendale", 1, 0),
+    post = ifelse(period == "After", 1, 0),
+    treat_post = treat * post
+  )
+
+model_2c <- lm(fatality_rate ~ post + treat + treat_post, data = Q3)
+
+summary(model_2c)
+```
+
+## Regression table
+
+```{r} 
+model_2c_table <- tidy(model_2c) %>%
+  select(term, estimate, std.error) %>%
+  rename(
+    Variable = term,
+    Coefficient = estimate,
+    `Standard Error` = std.error
+  )
+kable(model_2c_table, digits = 4)
+```
+
+## Interpretation
+
+The intercept, $\hat{\beta}_0 = 12.884$, is the average traffic fatality rate in Fairfield during the Before period.
+
+The coefficient on **post**, $\hat{\beta}_1 = -1.814$, shows that in Fairfield, the average traffic fatality rate decreased by **1.814** from the Before period to the After period.
+
+The coefficient on **treat**, $\hat{\beta}_2 = 2.211$, shows that in the Before period, Greendale had an average traffic fatality rate that was **2.211** higher than Fairfield.
+
+The coefficient on **treat_post**, $\hat{\beta}_3 = 1.333$, is the Difference-in-Differences estimate. It shows that after ride-sharing was legalized, the traffic fatality rate in Greendale was **1.333 higher relative to Fairfield** than it would have been based on the common trend alone.
+
+## Conclusion
+
+The regression-based Difference-in-Differences estimate is **1.333**, which suggests that ride-sharing legalization is associated with an increase in traffic fatality rates in Greendale relative to Fairfield.
+
+## Comparison between Manual and Regression DiD Estimates 
+
+We test whether the Difference-in-Differences estimate is statistically significant.
+
+The null and alternative hypotheses are:
+
+$$
+H_0: \beta_3 = 0
+$$
+
+$$
+H_1: \beta_3 \neq 0
+$$
+
+```{r} 
+summary(model_2c)
+```
+
+## Interpretation
+
+The coefficient on **treat_post** is **1.333**, which represents the Difference-in-Differences estimate.
+
+The p-value associated with this coefficient is **0.000102**.
+
+Since the p-value is less than 0.05, we reject the null hypothesis at the 5% significance level.
+
+## Conclusion
+
+We reject the null hypothesis that the Difference-in-Differences effect is equal to zero. This indicates that the effect of ride-sharing on traffic fatality rates is statistically significant.
+
+Specifically, ride-sharing is associated with an increase in traffic fatality rates in Greendale relative to Fairfield.
+
+This result suggests that the observed increase is unlikely to be due to random variation alone.
+
+
+## Identifying Assumptions 
+
+The validity of the Difference-in-Differences (DiD) estimate relies on the **parallel trends assumption**.
+
+## Parallel Trends Assumption
+
+The parallel trends assumption states that, in the absence of ride-sharing legalization, the average traffic fatality rates in **Greendale** and **Fairfield** would have followed the same trend over time.
+
+This means that Fairfield serves as a valid counterfactual for Greendale. Under this assumption, any difference in trends between the two states after legalization can be attributed to the effect of ride-sharing.
+
+## Can this assumption be directly tested?
+
+No, the parallel trends assumption cannot be directly tested in this case because the data only include **one pre-treatment period and one post-treatment period**.
+
+To assess whether the assumption is plausible, we would need multiple pre-treatment periods to compare trends in fatality rates between the two states before the policy change. Without this, we cannot verify whether the trends were similar prior to treatment.
+
+## Example of a violation and direction of bias
+
+A violation of the parallel trends assumption would occur if Greendale experienced another change at the same time as ride-sharing legalization that also affected traffic fatalities.
+
+For example, suppose Greendale introduced a **road safety campaign** or stricter DUI enforcement in 2025, while Fairfield did not. In this case, traffic fatalities in Greendale might decrease due to improved safety policies rather than ride-sharing. This would bias the DiD estimate **downward**, making the effect of ride-sharing appear smaller than it truly is.
+
+Conversely, if Greendale experienced a **negative shock**, such as increased road construction, tourism, or congestion, traffic fatalities might increase for reasons unrelated to ride-sharing. This would bias the estimate **upward**, making the effect of ride-sharing appear larger than it truly is.
+
+## Conclusion
+
+The DiD estimate provides a causal interpretation only if the parallel trends assumption holds. Since this assumption cannot be directly tested with the available data, the results should be interpreted with caution.
